@@ -3,7 +3,7 @@
 
 from django import forms
 from django.forms.forms import BoundField
-from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext_lazy as _
 
 class HiddenBaseForm(forms.BaseForm):
     def as_hidden(self):
