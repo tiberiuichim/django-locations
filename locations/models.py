@@ -16,3 +16,7 @@ class Location(models.Model):
     class Meta:
         ordering = ('-time_checkin',)
         get_latest_by = 'time_checkin'
+
+    def __unicode__(self):
+        return u"%s checked in at %s in %s" % (self.user, self.time_checkin, 
+                                                self.place)
