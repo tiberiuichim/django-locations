@@ -110,6 +110,7 @@ checkin = login_required(checkin)
 def friends_checkins(request):
     user = request.user
     friends = Friendship.objects.friends_for_user(user)
+
     context = {
         'friends': friends,
         'YAHOO_MAPS_API_KEY': lazy_key(),
@@ -123,39 +124,44 @@ friends_checkins = login_required(friends_checkins)
 def nearby_checkins(request, distance=None):
     user = request.user
     context = {'YAHOO_MAPS_API_KEY': lazy_key()}
-    if user.location_set.latest():
-        place = user.location_set.latest()
-        distance = getattr(settings, 'LOCATIONS_DISTANCE', 20)
-        queryset = Location.objects.all()
-        rough_distance = geopy.units.degrees(
-            arcminutes=geopy.units.nm(miles=distance)) * 2
-        queryset = queryset.filter(
-            latitude__range=(place.latitude - rough_distance,
-                place.latitude + rough_distance),
-            longitude__range=(place.longitude - rough_distance,
-                place.longitude + rough_distance)
-        )
-        # Filtering the query set with an area of rough distance all the sides
-        locations = []
-        for location in queryset:
-            if location.latitude and location.longitude:
-                exact_distance = geopy.distance.distance(
-                    (place.latitude, place.longitude),
-                    (location.latitude, location.longitude)
-                )
-                if exact_distance.miles <= distance:
-                    locations.append(location)
-        queryset = queryset.filter(id__in=[l.id for l in locations])
-        context['queryset'] = queryset.exclude(user=request.user)
-        return render_to_response("locations/nearby_checkins.html",
-            context,
-            context_instance=RequestContext(request)
-        )
-    else:
+
+    try:
+        latest_location = user.location_set.latest()
+        if not latest_location:
+            raise Location.DoesNotExist
+    except Location.DoesNotExist:
         request.user.message_set.create(
             message=_("You haven't checked in any location."))
         return render_to_response("locations/nearby_checkins.html",
             context,
             context_instance=RequestContext(request)
         )
+
+    place = user.location_set.latest()
+    distance = getattr(settings, 'LOCATIONS_DISTANCE', 20)
+    queryset = Location.objects.all()
+    rough_distance = geopy.units.degrees(
+        arcminutes=geopy.units.nm(miles=distance)) * 2
+    queryset = queryset.filter(
+        latitude__range=(place.latitude - rough_distance,
+            place.latitude + rough_distance),
+        longitude__range=(place.longitude - rough_distance,
+            place.longitude + rough_distance)
+    )
+    # Filtering the query set with an area of rough distance all the sides
+    locations = []
+    for location in queryset:
+        if location.latitude and location.longitude:
+            exact_distance = geopy.distance.distance(
+                (place.latitude, place.longitude),
+                (location.latitude, location.longitude)
+            )
+            if exact_distance.miles <= distance:
+                locations.append(location)
+    queryset = queryset.filter(id__in=[l.id for l in locations])
+    context['queryset'] = queryset.exclude(user=request.user)
+    return render_to_response("locations/nearby_checkins.html",
+        context,
+        context_instance=RequestContext(request)
+    )
 nearby_checkins = login_required(nearby_checkins)
